@@ -344,6 +344,25 @@ static void show_vma_header_prefix(struct seq_file *m,
 		   MAJOR(dev), MINOR(dev), ino);
 }
 
+//add
+static void my_show_vma_header_prefix(struct seq_file *m,
+				   unsigned long start, unsigned long end,
+				   vm_flags_t flags, unsigned long long pgoff,
+				   dev_t dev, unsigned long ino)
+{
+	seq_setwidth(m, 25 + sizeof(void *) * 6 - 1);
+	seq_printf(m, "%08lx-%08lx %c%c%c%c %08llx %02x:%02x %lu ",
+		   start,
+		   end,
+		   flags & VM_READ ? 'r' : '-',
+		   flags & VM_WRITE ? 'w' : '-',
+		   '-', //flags & VM_EXEC ? 'x' : '-',
+		   flags & VM_MAYSHARE ? 's' : 'p',
+		   0LL, //pgoff,
+		   0,0,0L); //MAJOR(dev), MINOR(dev), ino);
+}
+//add end
+
 static void
 show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 {
@@ -356,6 +375,10 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	unsigned long start, end;
 	dev_t dev = 0;
 	const char *name = NULL;
+	//add
+	unsigned long need_hide = 0;
+	char *path_buf = kzalloc(PATH_MAX, GFP_KERNEL);
+	//add end
 
 	if (file) {
 		struct inode *inode = file_inode(vma->vm_file);
@@ -367,7 +390,24 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	/* We don't show the stack guard page in /proc/maps */
 	start = vma->vm_start;
 	end = vma->vm_end;
-	show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
+	//add
+	if (file) {
+		char *path = d_path(&(file->f_path), path_buf, PATH_MAX-1);
+		if(strlen(path) > 0) {
+			if (strstr(path, "/data/local/tmp/")
+				|| strstr(path, "frida")
+				|| strstr(path, "gadget")
+				|| strstr(path, "inject")) 
+				need_hide = 1;
+		}
+	}
+	kfree(path_buf);
+	if(file && need_hide == 1) {
+		my_show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
+	} else {
+		show_vma_header_prefix(m, start, end, flags, pgoff, dev, ino);
+	}
+	//add end
 
 	/*
 	 * Print the dentry name for named mappings, and a
@@ -375,6 +415,10 @@ show_map_vma(struct seq_file *m, struct vm_area_struct *vma, int is_pid)
 	 */
 	if (file) {
 		seq_pad(m, ' ');
+		//add
+		if(need_hide == 1)
+			goto done;
+		//add end
 		seq_file_path(m, file, "\n");
 		goto done;
 	}
