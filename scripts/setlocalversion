@@ -33,6 +33,10 @@ scm_version()
 	local short
 	short=false
 
+	# add
+	printf "4.4.210-g4fecde07e68d"
+	return
+	# add end
 	cd "$srctree"
 	if test -e .scmversion; then
 		cat .scmversion
